@@ -3,7 +3,7 @@ import random
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
-SCREEN_TITLE = "Coin Collector Collision Example"
+SCREEN_TITLE = "The Legend of (not) Zelda"
 
 class ShapeWindow(arcade.Window):
     def __init__(self):
@@ -32,20 +32,20 @@ class ShapeWindow(arcade.Window):
         # Room 1 setup
         walls_1 = arcade.SpriteList()
         for i in range(7):
-            wall = arcade.Sprite(":resources:/images/tiles/brickGrey.png", scale=0.5)
+            wall = arcade.Sprite("assets/walls/wall.png", scale=0.25)
             wall.center_x = 150  
             wall.center_y = i * 55 + 100 
             walls_1.append(wall)
 
         # Horizontal wall 7 blocks long
         for i in range(7):
-            wall = arcade.Sprite(":resources:/images/tiles/brickGrey.png", scale=0.5)
+            wall = arcade.Sprite("assets/walls/wall.png", scale=0.25)
             wall.center_x = i * 55
             wall.center_y = 450
             walls_1.append(wall)
 
         for i in range(7):
-            wall2 = arcade.Sprite(":resources:/images/tiles/brickGrey.png", scale=0.5)
+            wall2 = arcade.Sprite("assets/walls/wall.png", scale=0.25)
             wall2.center_x = 800 - i * 55
             wall2.center_y = 450
             walls_1.append(wall2)
@@ -56,14 +56,14 @@ class ShapeWindow(arcade.Window):
         door_width = right_wall_left_edge - left_wall_right_edge
 
         door_list_1 = arcade.SpriteList()
-        door1 = arcade.Sprite(":resources:/images/tiles/boxCrate_double.png", scale=0.5)
+        door1 = arcade.Sprite("assets/walls/Wooden_Door.png", scale=0.65)
         door1.width = door_width
         door1.center_x = (left_wall_right_edge + right_wall_left_edge) / 2
         door1.center_y = 450  # same height as your horizontal wall
         door1.door_type = "master"
         door_list_1.append(door1)
 
-        door2 = arcade.Sprite(":resources:/images/tiles/boxCrate_double.png", scale=0.5)
+        door2 = arcade.Sprite("assets/walls/Wooden_Door.png", scale=0.65)
         door2.width = 70
         door2.center_x = 150
         door2.center_y = 35
@@ -93,19 +93,19 @@ class ShapeWindow(arcade.Window):
         # Room 2 setup (different layout)
         walls_2 = arcade.SpriteList()
         for i in range(10):
-            wall = arcade.Sprite(":resources:/images/tiles/brickGrey.png", scale=0.5)
+            wall = arcade.Sprite("assets/walls/wall_normal.png", scale=0.5)
             wall.center_x = i * 80 + 40
             wall.center_y = 550
             walls_2.append(wall)
 
         for i in range(8):
-            wall = arcade.Sprite(":resources:/images/tiles/brickGrey.png", scale=0.5)
+            wall = arcade.Sprite("assets/walls/wall_normal.png", scale=0.5)
             wall.center_x = 40
             wall.center_y = i * 70 + 50
             walls_2.append(wall)
 
         door_list_2 = arcade.SpriteList()
-        door3 = arcade.Sprite(":resources:/images/tiles/boxCrate_double.png", scale=0.5)
+        door3 = arcade.Sprite(":resources:/images/tiles/lockYellow.png", scale=0.5)
         door3.width = 70
         door3.center_x = 760
         door3.center_y = 100
@@ -130,7 +130,15 @@ class ShapeWindow(arcade.Window):
         self.rooms.append(room_2)
 
         # Player setup
-        self.player = arcade.Sprite("assets/player/link.png", scale=0.05)
+
+        player_path = "assets/player/player_front.png"
+        self.player_sprites = {
+        "up": "assets/player/player_back.png",
+        "down": "assets/player/player_front.png",
+        "left": "assets/player/player_left.png",
+        "right": "assets/player/player_right.png"
+}
+        self.player = arcade.Sprite(player_path, scale=1)
         self.player.center_x = SCREEN_WIDTH // 2
         self.player.center_y = SCREEN_HEIGHT // 2
         self.player_list.append(self.player)
@@ -142,6 +150,9 @@ class ShapeWindow(arcade.Window):
         # Score
         self.norm_key = 0
         self.master_key = 0
+
+    def update_player_sprite(self, direction):
+        self.player.texture = arcade.load_texture(self.player_sprites[direction])
 
     def transition_to_next_room(self, direction):
         # direction is 'left', 'right', 'up', or 'down'
@@ -272,7 +283,7 @@ class ShapeWindow(arcade.Window):
                 self.message_timer = 90  # ~1.5 seconds
             elif key.type == "master":
                 key.remove_from_sprite_lists()
-                arcade.play_sound(self.collect_master_key_sound)
+                arcade.play_sound(self.collect_key_sound)
                 self.master_key += 1
                 self.message = "You picked up the Master Key!"
                 self.message_timer = 120  # ~2 seconds
@@ -285,12 +296,16 @@ class ShapeWindow(arcade.Window):
     def on_key_press(self, key, modifiers):
         if key == arcade.key.D:
             self.change_x = 5
+            self.update_player_sprite("right")
         elif key == arcade.key.A:
             self.change_x = -5
+            self.update_player_sprite("left")
         elif key == arcade.key.W:
             self.change_y = 5
+            self.update_player_sprite("up")
         elif key == arcade.key.S:
             self.change_y = -5
+            self.update_player_sprite("down")
 
     def on_key_release(self, key, modifiers):
         if key in (arcade.key.D, arcade.key.A):
