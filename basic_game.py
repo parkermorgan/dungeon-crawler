@@ -8,18 +8,18 @@ SCREEN_TITLE = "The Legend of Parker"
 class ShapeWindow(arcade.Window):
     def __init__(self):
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+        arcade.load_font("assets/fonts/PressStart2P.ttf")
         self.setup_sound()
         self.setup_rooms()
         self.play_room_music()
 
         self.player_list = arcade.SpriteList()
 
-        self.message = ""
-        self.message_timer = 0
+        self.message = "You must get into the next room!"
+        self.message_timer = 180  
+        self.message_coords = (250, 150)
 
-        
 
-       
         
         # Create Player
 
@@ -47,7 +47,6 @@ class ShapeWindow(arcade.Window):
             
             # Sound effects
             self.collect_key_sound = arcade.load_sound("assets/sounds/item get 1.wav")
-            self.collect_master_key_sound = arcade.load_sound("assets/sounds/139-item-catch.mp3")
             self.open_door_sound = arcade.load_sound("assets/sounds/door_open.wav")
             
             # Background music for each room
@@ -72,6 +71,9 @@ class ShapeWindow(arcade.Window):
         # Initialize rooms list
         self.rooms = []
         self.current_room = 0
+
+        # Empty wall list for testing
+        walls_empty = arcade.SpriteList()
 
         # Room 1 
         walls_1 = arcade.SpriteList()
@@ -153,6 +155,7 @@ class ShapeWindow(arcade.Window):
         mas_key.type = "master"
         key_list_1.append(mas_key)
 
+        # Create first room
 
         room_1 = {
             "walls": walls_1,
@@ -161,19 +164,19 @@ class ShapeWindow(arcade.Window):
             "background_color": arcade.color.ARSENIC
         }
 
-        # Create second room for testing
+        # Create second room
         
         room_2 = {
             "walls": walls_2,
             "doors": no_door_list,
             "keys": no_key_list,
-            "background_color": arcade.color.DARK_SLATE_GRAY
+            "background_color": arcade.color.COOL_BLACK
         }
+
+        # Add rooms to list
 
         self.rooms.append(room_1)
         self.rooms.append(room_2)
-
-
 
     def update_player_sprite(self, direction):
         self.player.texture = arcade.load_texture(self.player_sprites[direction])
@@ -188,12 +191,48 @@ class ShapeWindow(arcade.Window):
             next_room = self.current_room - 1
             self.player.center_y = SCREEN_HEIGHT - 5  # Appear on top edge of next room
 
+
         if next_room is not None:
             self.current_room = next_room
             self.play_room_music()
             self.change_x = 0
             self.change_y = 0
 
+            if self.current_room == 1:
+                self.player.center_x = SCREEN_WIDTH // 2
+                self.message = "You have reached the final room! Relish in your glory."
+                self.message_timer = 300
+                self.message_coords = (250, 400)
+
+            elif self.current_room == 0:
+                self.message = "What are you doing back here?"
+                self.message_timer = 150
+                self.message_coords = (250, 300)
+
+    def text_box(self, text, left, bottom):
+        box_width = 300
+        box_height = 100
+        box_left = left
+        box_bottom = bottom
+
+        arcade.draw_lbwh_rectangle_filled(left=box_left, bottom=box_bottom, width=box_width, height=box_height, color=(0, 0, 0, 200))
+        arcade.draw_lbwh_rectangle_outline(left=box_left, bottom=box_bottom, width=box_width, height=box_height, color=arcade.color.WHITE)
+
+        # Create an arcade.Text object for wrapped text and draw it
+        text_obj = arcade.Text(
+            text,
+            box_left + 10,
+            box_bottom + 40,
+            arcade.color.WHITE,
+            10,
+            width=box_width - 20,
+            align='center',
+            font_name="Press Start 2P",
+            anchor_x="left",
+            anchor_y="bottom",
+            multiline=True
+        )
+        text_obj.draw()
     def on_draw(self):
         self.clear()
         current_room = self.rooms[self.current_room]
@@ -202,14 +241,12 @@ class ShapeWindow(arcade.Window):
         self.player_list.draw()
         current_room["walls"].draw()
         current_room["doors"].draw()
-    
 
-        arcade.draw_text(f"Keys: {self.norm_key} | Master Keys: {self.master_key}", 10, 10, arcade.color.WHITE, 16)
+        arcade.draw_text(f"Keys: {self.norm_key} | Master Keys: {self.master_key}", 10, 10, arcade.color.WHITE, 12, font_name="Press Start 2P")
 
         if self.message:
-            alpha = int(255 * (self.message_timer / 120))
-            arcade.draw_text(self.message, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
-                            (255, 255, 255, alpha), 20, anchor_x="center")
+            x, y = getattr(self, 'message_coords', (250, 80))
+            self.text_box(self.message, x, y)
 
     def on_update(self, delta_time):
         current_room = self.rooms[self.current_room]
@@ -227,11 +264,11 @@ class ShapeWindow(arcade.Window):
         hit_list = arcade.check_for_collision_with_list(self.player, current_room["walls"])
         if hit_list:
             if self.change_y > 0:
-                self.player.top = min(w.bottom for w in hit_list)
+                self.player.top = min(w.bottom for w in hit_list) 
             elif self.change_y < 0:
                 self.player.bottom = max(w.top for w in hit_list)
 
-        for door in current_room["doors"][:]:  # use a copy since we might remove items
+        for door in current_room["doors"][:]: 
             if door.door_type == "normal":
                 if self.norm_key < 1 and arcade.check_for_collision(self.player, door):
                     self.message = "You need a Key!"
@@ -240,8 +277,6 @@ class ShapeWindow(arcade.Window):
                     arcade.play_sound(self.open_door_sound)
                     current_room["doors"].remove(door)
                     self.norm_key -= 1
-                    self.message = "You used a key!"
-                    self.message_timer = 60
 
             elif door.door_type == "master":
                 if self.master_key < 1 and arcade.check_for_collision(self.player, door):
@@ -251,8 +286,7 @@ class ShapeWindow(arcade.Window):
                     arcade.play_sound(self.open_door_sound)
                     current_room["doors"].remove(door)
                     self.master_key -= 1
-                    self.message = "You used the Master Key!"
-                    self.message_timer = 60
+                
                     
 
         # Check for door collision to block player if door is closed
