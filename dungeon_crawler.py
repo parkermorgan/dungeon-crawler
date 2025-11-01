@@ -1,3 +1,11 @@
+# AI Disclaimer: Artificial Intelligence was used in the production of this program.
+# AI was used to create boilerplate code, teach concepts due to low amount of online resources,
+# and bug fixing. 
+
+# Sprites: Parker Morgan, inspiration from 'The Legend of Zelda: A Link To The Past
+# Sound effects: Juhani Junkala
+# Music: HydroGene
+
 import arcade
 
 SCREEN_WIDTH = 800
