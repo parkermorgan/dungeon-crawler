@@ -30,8 +30,6 @@ class ShapeWindow(arcade.Window):
         self.key = 0
         self.master_key = 0
 
-
-        
     def setup_player(self):
 
         self.player_list = arcade.SpriteList()
@@ -77,7 +75,7 @@ class ShapeWindow(arcade.Window):
         
         track = self.room_music.get(self.current_room)
         if track:
-            self.background_player = arcade.play_sound(track, loop=True, volume=0.3)
+            self.background_player = arcade.play_sound(track, loop=True, volume=0.1)
 
     def setup_rooms(self):
 
@@ -346,7 +344,7 @@ class ShapeWindow(arcade.Window):
                 self.message = "You picked up the Master Key!"
                 self.message_timer = 120  # ~2 seconds
 
-        if self.current_room == 1 and arcade.check_for_collision(self.player, self.crown):
+        if self.current_room == 1 and self.crown is not None and arcade.check_for_collision(self.player, self.crown):
             self.crown_list.remove(self.crown)
             arcade.play_sound(self.collect_crown_sound)
             self.update_player_sprite("down")
