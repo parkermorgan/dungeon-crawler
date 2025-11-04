@@ -22,6 +22,9 @@ class ShapeWindow(arcade.Window):
         self.setup_rooms()
         self.play_room_music()
 
+        self.collect = False
+        self.collect_timer = 0
+
         self.message = "You must get into the next room!"
         self.message_timer = 180  
         self.message_coords = (250, 150)
@@ -29,6 +32,8 @@ class ShapeWindow(arcade.Window):
         # Create key count
         self.key = 0
         self.master_key = 0
+
+        self.attack = False
 
     def setup_player(self):
 
@@ -40,9 +45,11 @@ class ShapeWindow(arcade.Window):
             "down": arcade.load_texture("assets/player/player_front.png"),
             "left": arcade.load_texture("assets/player/player_left.png"),
             "right": arcade.load_texture("assets/player/player_right.png"),
+            "attack_up": arcade.load_texture("assets/player/attack/player_attack_up.png"),
             "attack_down": arcade.load_texture("assets/player/attack/player_attack_down.png"),
             "attack_left": arcade.load_texture("assets/player/attack/player_attack_left.png"),
-            "attack_right": arcade.load_texture("assets/player/attack/player_attack_right.png")
+            "attack_right": arcade.load_texture("assets/player/attack/player_attack_right.png"),
+            "collect_large": arcade.load_texture("assets/player/action/player_collect_large.png")
         }
 
         self.player = arcade.Sprite(player_path, scale=1)
@@ -59,6 +66,9 @@ class ShapeWindow(arcade.Window):
         self.attack_timer = 0
         self.attack_duration = 10
         self.last_direction = "down"
+
+        self.action = False
+        self.action_timer = 0
 
 
     def setup_sound(self):
@@ -222,7 +232,7 @@ class ShapeWindow(arcade.Window):
         self.attack_timer = self.attack_duration
         self.update_player_sprite(f"attack_{self.last_direction}")
         
-
+ 
     def move_room(self, direction):
         # direction is 'left', 'right', 'up', or 'down'
         next_room = None
@@ -287,6 +297,9 @@ class ShapeWindow(arcade.Window):
         current_room["doors"].draw()
         if self.current_room == 1:
             self.crown_list.draw()
+        # Draw floating items if they exist
+        if hasattr(self, "floating_items"):
+            self.floating_items.draw()
 
         arcade.draw_text(f"Keys: {self.key} | Master Keys: {self.master_key}", 10, 10, arcade.color.WHITE, 12, font_name="Press Start 2P")
 
@@ -296,6 +309,15 @@ class ShapeWindow(arcade.Window):
 
     def on_update(self, delta_time):
         current_room = self.rooms[self.current_room]
+
+        # Collecting items
+        if self.collect:
+            self.collect_timer -= 1
+            if self.collect_timer <= 0:
+                self.collect = False
+                self.update_player_sprite("down")
+                if hasattr(self, "floating_items"):
+                    self.floating_items = arcade.SpriteList()
 
         # Collision checks
         self.player.center_x += self.change_x
@@ -356,6 +378,7 @@ class ShapeWindow(arcade.Window):
 
         # Collecting keys collision checks
         key_hit_list = arcade.check_for_collision_with_list(self.player, current_room["keys"])
+        
         for key in key_hit_list:
             if key.type == "normal":
                 key.remove_from_sprite_lists()
@@ -369,15 +392,42 @@ class ShapeWindow(arcade.Window):
                 self.master_key += 1
                 self.message = "You picked up the Master Key!"
                 self.message_timer = 120  # ~2 seconds
+            
+            self.update_player_sprite("collect_large")
+            self.change_x = 0
+            self.change_y = 0
+            self.collect = True
+            self.collect_timer = 60
+
+            image_path = "assets/items/key.png" if key.type == "normal" else "assets/items/boss_key.png"
+            item = arcade.Sprite(image_path, scale=1)
+            item.center_x = self.player.center_x
+            item.center_y = self.player.center_y + 50
+            if not hasattr(self, "floating_items"):
+                self.floating_items = arcade.SpriteList()
+            self.floating_items.append(item)
 
         if self.current_room == 1 and self.crown is not None and arcade.check_for_collision(self.player, self.crown):
-            self.crown_list.remove(self.crown)
             arcade.play_sound(self.collect_crown_sound)
-            self.update_player_sprite("down")
+            self.update_player_sprite("collect_large")
             self.message = "Thank you for playing!"
             self.message_timer = 180
+            self.collect = True
+            # Show the crown above the player
+            item = arcade.Sprite("assets/items/crown.png", scale=1)
+            item.center_x = self.player.center_x
+            item.center_y = self.player.center_y + 50
+            if not hasattr(self, "floating_items"):
+                self.floating_items = arcade.SpriteList()
+            self.floating_items.append(item)
+            self.collect_timer = 999
             arcade.schedule(lambda delta_time: arcade.close_window(), 2.0)
+            self.crown.remove_from_sprite_lists()
             self.crown = None
+
+
+            self.change_x = 0
+            self.change_y = 0
         
         # Room transitions
         if self.player.left < 0:
@@ -408,6 +458,8 @@ class ShapeWindow(arcade.Window):
     
     # Player movement
     def on_key_press(self, key, modifiers):
+        if self.collect:
+            return
         if key == arcade.key.D:
             self.change_x = 5
             self.update_player_sprite("right")
@@ -424,6 +476,8 @@ class ShapeWindow(arcade.Window):
             self.start_attack()
 
     def on_key_release(self, key, modifiers):
+        if self.collect:
+            return
         if key in (arcade.key.D, arcade.key.A):
             self.change_x = 0
         elif key in (arcade.key.W, arcade.key.S):
