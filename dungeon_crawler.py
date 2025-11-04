@@ -35,11 +35,14 @@ class ShapeWindow(arcade.Window):
         self.player_list = arcade.SpriteList()
 
         player_path = "assets/player/player_front.png"
-        self.player_sprites = {
-        "up": "assets/player/player_back.png",
-        "down": "assets/player/player_front.png",
-        "left": "assets/player/player_left.png",
-        "right": "assets/player/player_right.png"
+        self.player_textures = {
+            "up": arcade.load_texture("assets/player/player_back.png"),
+            "down": arcade.load_texture("assets/player/player_front.png"),
+            "left": arcade.load_texture("assets/player/player_left.png"),
+            "right": arcade.load_texture("assets/player/player_right.png"),
+            "attack_down": arcade.load_texture("assets/player/attack/player_attack_down.png"),
+            "attack_left": arcade.load_texture("assets/player/attack/player_attack_left.png"),
+            "attack_right": arcade.load_texture("assets/player/attack/player_attack_right.png")
         }
 
         self.player = arcade.Sprite(player_path, scale=1)
@@ -50,6 +53,12 @@ class ShapeWindow(arcade.Window):
         # Player movement
         self.change_x = 0
         self.change_y = 0
+
+        # Player attack 
+        self.player_attack = False
+        self.attack_timer = 0
+        self.attack_duration = 10
+        self.last_direction = "down"
 
 
     def setup_sound(self):
@@ -201,8 +210,18 @@ class ShapeWindow(arcade.Window):
         self.rooms.append(room_1)
         self.rooms.append(room_2)
 
-    def update_player_sprite(self, direction):
-        self.player.texture = arcade.load_texture(self.player_sprites[direction])
+    def update_player_sprite(self, movement):
+        if not self.player_attack or movement.startswith("attack_"):
+            if movement in self.player_textures:
+                self.player.texture = self.player_textures[movement]
+            if movement in ["up", "down", "left", "right"]:
+                self.last_direction = movement
+    
+    def start_attack(self):
+        self.player_attack = True
+        self.attack_timer = self.attack_duration
+        self.update_player_sprite(f"attack_{self.last_direction}")
+        
 
     def move_room(self, direction):
         # direction is 'left', 'right', 'up', or 'down'
@@ -294,6 +313,13 @@ class ShapeWindow(arcade.Window):
                 self.player.top = min(w.bottom for w in hit_list) 
             elif self.change_y < 0:
                 self.player.bottom = max(w.top for w in hit_list)
+
+        # Attack timing
+        if self.player_attack:
+            self.attack_timer -= 1
+            if self.attack_timer <= 0:
+                self.player_attack = False
+                self.update_player_sprite(self.last_direction)
 
         for door in current_room["doors"][:]: 
             if door.door_type == "normal":
@@ -394,6 +420,8 @@ class ShapeWindow(arcade.Window):
         elif key == arcade.key.S:
             self.change_y = -5
             self.update_player_sprite("down")
+        elif key == arcade.key.SPACE and not self.player_attack:
+            self.start_attack()
 
     def on_key_release(self, key, modifiers):
         if key in (arcade.key.D, arcade.key.A):
