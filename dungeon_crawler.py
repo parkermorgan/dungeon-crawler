@@ -32,8 +32,14 @@ class ShapeWindow(arcade.Window):
         # Create key count
         self.key = 0
         self.master_key = 0
+        self.health = 3
+        # SpriteList for health icons
+        self.hearts_list = arcade.SpriteList()
+        self.player_health(self.health)
 
-        self.attack = False
+        
+        self.flash_active = False
+        self.flash_timer = 0
 
     def setup_player(self):
 
@@ -49,7 +55,10 @@ class ShapeWindow(arcade.Window):
             "attack_down": arcade.load_texture("assets/player/attack/player_attack_down.png"),
             "attack_left": arcade.load_texture("assets/player/attack/player_attack_left.png"),
             "attack_right": arcade.load_texture("assets/player/attack/player_attack_right.png"),
-            "collect_large": arcade.load_texture("assets/player/action/player_collect_large.png")
+            "collect_large": arcade.load_texture("assets/player/action/player_collect_large.png"),
+            "game_over": arcade.load_texture("assets/player/action/player_game_over.png"),
+            "damage_up": arcade.load_texture("assets/player/action/player_game_over.png"),
+            "damage_down": arcade.load_texture("assets/player/player_damage_front.png"),
         }
 
         self.player = arcade.Sprite(player_path, scale=1)
@@ -231,6 +240,19 @@ class ShapeWindow(arcade.Window):
         self.player_attack = True
         self.attack_timer = self.attack_duration
         self.update_player_sprite(f"attack_{self.last_direction}")
+
+    def player_health(self, health):
+        self.health = health
+
+        # Clear old hearts
+        self.hearts_list = arcade.SpriteList()
+
+        # Add one heart per health point
+        for i in range(self.health):
+            heart = arcade.Sprite("assets/gui/heart.png", scale=1.25)
+            heart.center_x = 30 + i * 40  # space hearts horizontally
+            heart.center_y = SCREEN_HEIGHT - 30
+            self.hearts_list.append(heart)
         
  
     def move_room(self, direction):
@@ -293,6 +315,8 @@ class ShapeWindow(arcade.Window):
         arcade.set_background_color(current_room["background_color"])
         current_room["keys"].draw()
         self.player_list.draw()
+        # Draw hearts
+        self.hearts_list.draw()
         current_room["walls"].draw()
         current_room["doors"].draw()
         if self.current_room == 1:
@@ -307,8 +331,45 @@ class ShapeWindow(arcade.Window):
             x, y = getattr(self, 'message_coords', (250, 80))
             self.text_box(self.message, x, y)
 
+    def damage_flash(self, damage_direction, normal_direction):
+        if self.flash_active:
+            self.flash_timer += 1
+
+            damage_texture = self.player_textures.get(damage_direction)
+            normal_texture = self.player_textures.get(normal_direction)
+
+            # Alternate the texture every 5 frames
+            if self.flash_timer % 5 == 0:
+                if self.player.texture == damage_texture:
+                    self.player.texture = normal_texture
+                else:
+                    self.player.texture = damage_texture
+
+            # End the flash after 45 frames
+            if self.flash_timer > 45:
+                self.flash_active = False
+                self.player.texture = normal_texture
+
     def on_update(self, delta_time):
         current_room = self.rooms[self.current_room]
+
+        # Handle directional damage flash
+        if self.flash_active:
+            dir_map = {
+                "up": ("damage_up", "up"),
+                "down": ("damage_down", "down"),
+                "left": ("damage_left", "left"),
+                "right": ("damage_right", "right")
+            }
+            damage_dir, normal_dir = dir_map.get(self.last_direction, ("damage_down", "down"))
+            self.damage_flash(damage_dir, normal_dir)
+
+        if self.health == 0:
+            if not self.flash_active and self.flash_timer > 0:
+                self.update_player_sprite("game_over")
+                self.message = "Game over"
+                self.message_timer = 120
+                arcade.schedule(lambda delta_time: arcade.close_window(), 2.0)
 
         # Collecting items
         if self.collect:
@@ -474,6 +535,12 @@ class ShapeWindow(arcade.Window):
             self.update_player_sprite("down")
         elif key == arcade.key.SPACE and not self.player_attack:
             self.start_attack()
+        elif key == arcade.key.H:
+            if self.health > 0:
+                self.health = max(0, self.health - 1)
+                self.player_health(self.health)
+                self.flash_active = True
+                self.flash_timer = 0
 
     def on_key_release(self, key, modifiers):
         if self.collect:
