@@ -57,8 +57,11 @@ class ShapeWindow(arcade.Window):
             "attack_right": arcade.load_texture("assets/player/attack/player_attack_right.png"),
             "collect_large": arcade.load_texture("assets/player/action/player_collect_large.png"),
             "game_over": arcade.load_texture("assets/player/action/player_game_over.png"),
-            "damage_up": arcade.load_texture("assets/player/action/player_game_over.png"),
-            "damage_down": arcade.load_texture("assets/player/player_damage_front.png"),
+            "game_over_flash": arcade.load_texture("assets/player/action/player_game_over_flash.png"),
+            "damage_up": arcade.load_texture("assets/player/player_damage_up.png"),
+            "damage_down": arcade.load_texture("assets/player/player_damage_down.png"),
+            "damage_left": arcade.load_texture("assets/player/player_damage_left.png"),
+            "damage_right": arcade.load_texture("assets/player/player_damage_right.png")
         }
 
         self.player = arcade.Sprite(player_path, scale=1)
@@ -79,6 +82,35 @@ class ShapeWindow(arcade.Window):
         self.action = False
         self.action_timer = 0
 
+    def player_health(self, health):
+        self.health = health
+
+        
+        self.hearts_list = arcade.SpriteList()
+        for i in range(self.health):
+            heart = arcade.Sprite("assets/gui/heart.png", scale=1.25)
+            heart.center_x = 30 + i * 40
+            heart.center_y = SCREEN_HEIGHT - 30
+            self.hearts_list.append(heart)
+
+        if self.health > 1 and hasattr(self, "low_health_player") and self.low_health_player:
+            arcade.stop_sound(self.low_health_player)
+            self.low_health_player = None
+
+        if self.health == 1 and (not hasattr(self, "low_health_player") or self.low_health_player is None):
+            self.low_health_player = arcade.play_sound(self.low_health_sound, loop=True, volume=0.05)
+
+        if self.health == 0:
+            if hasattr(self, "low_health_player") and self.low_health_player:
+                arcade.stop_sound(self.low_health_player)
+                self.low_health_player = None
+
+            if self.background_player:
+                arcade.stop_sound(self.background_player)
+                self.background_player = None
+            
+            arcade.play_sound(self.game_over_sound, volume=0.75)
+
 
     def setup_sound(self):
             
@@ -87,6 +119,9 @@ class ShapeWindow(arcade.Window):
             self.open_door_sound = arcade.load_sound("assets/sounds/door_open.wav")
             self.collect_master_key_sound = arcade.load_sound("assets/sounds/master_key.wav")
             self.collect_crown_sound = arcade.load_sound("assets/sounds/crown_collect.wav")
+            self.low_health_sound = arcade.load_sound("assets/sounds/player/low_health.wav")
+            self.game_over_sound = arcade.load_sound("assets/sounds/player/game-over.wav")
+            self.player_hit_sound = arcade.load_sound("assets/sounds/player/player_hit.wav")
             
             # Background music for each room
             self.room_music ={
@@ -240,20 +275,6 @@ class ShapeWindow(arcade.Window):
         self.player_attack = True
         self.attack_timer = self.attack_duration
         self.update_player_sprite(f"attack_{self.last_direction}")
-
-    def player_health(self, health):
-        self.health = health
-
-        # Clear old hearts
-        self.hearts_list = arcade.SpriteList()
-
-        # Add one heart per health point
-        for i in range(self.health):
-            heart = arcade.Sprite("assets/gui/heart.png", scale=1.25)
-            heart.center_x = 30 + i * 40  # space hearts horizontally
-            heart.center_y = SCREEN_HEIGHT - 30
-            self.hearts_list.append(heart)
-        
  
     def move_room(self, direction):
         # direction is 'left', 'right', 'up', or 'down'
@@ -347,8 +368,13 @@ class ShapeWindow(arcade.Window):
 
             # End the flash after 45 frames
             if self.flash_timer > 45:
-                self.flash_active = False
-                self.player.texture = normal_texture
+                if self.health == 0:
+                    self.flash_active = True
+                else:
+                    self.flash_active = False
+                    self.player.texture = normal_texture
+
+            
 
     def on_update(self, delta_time):
         current_room = self.rooms[self.current_room]
@@ -359,17 +385,20 @@ class ShapeWindow(arcade.Window):
                 "up": ("damage_up", "up"),
                 "down": ("damage_down", "down"),
                 "left": ("damage_left", "left"),
-                "right": ("damage_right", "right")
+                "right": ("damage_right", "right"),
+                "game_over": ("game_over_flash", "game_over")
             }
             damage_dir, normal_dir = dir_map.get(self.last_direction, ("damage_down", "down"))
             self.damage_flash(damage_dir, normal_dir)
+            
+            if self.health == 0:
+                self.last_direction = "game_over"
 
         if self.health == 0:
-            if not self.flash_active and self.flash_timer > 0:
-                self.update_player_sprite("game_over")
-                self.message = "Game over"
+                self.message = "Game over. Better luck next time!"
+                self.message_coords = (250, 100)
                 self.message_timer = 120
-                arcade.schedule(lambda delta_time: arcade.close_window(), 2.0)
+                arcade.schedule(lambda delta_time: arcade.close_window(), 2)
 
         # Collecting items
         if self.collect:
@@ -445,14 +474,15 @@ class ShapeWindow(arcade.Window):
                 key.remove_from_sprite_lists()
                 arcade.play_sound(self.collect_key_sound)
                 self.key += 1
+                
                 self.message = "You picked up a key!"
-                self.message_timer = 90  # ~1.5 seconds
+                self.message_timer = 90 
             elif key.type == "master":
                 key.remove_from_sprite_lists()
                 arcade.play_sound(self.collect_master_key_sound)
                 self.master_key += 1
                 self.message = "You picked up the Master Key!"
-                self.message_timer = 120  # ~2 seconds
+                self.message_timer = 120  
             
             self.update_player_sprite("collect_large")
             self.change_x = 0
@@ -539,6 +569,9 @@ class ShapeWindow(arcade.Window):
             if self.health > 0:
                 self.health = max(0, self.health - 1)
                 self.player_health(self.health)
+
+                arcade.play_sound(self.player_hit_sound, volume=0.4)
+
                 self.flash_active = True
                 self.flash_timer = 0
 
